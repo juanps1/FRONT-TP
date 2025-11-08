@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function MedidoresPage() {
   const navigate = useNavigate();
+  const { roleId } = useAuth();
   const [medidores, setMedidores] = useState([]); // lista de SENSORES
   const [nuevo, setNuevo] = useState({
     nombre: "",
@@ -254,6 +256,9 @@ export default function MedidoresPage() {
           <a className="text-primary" href="#">Medidores</a>
           <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/facturas">Facturas</a>
           <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/alertas">Alertas</a>
+          {roleId === 1 && (
+            <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/usuarios">Usuarios</a>
+          )}
         </nav>
       </header>
 
@@ -439,26 +444,32 @@ export default function MedidoresPage() {
                       >
                         <span className="material-symbols-outlined text-sm">add_circle</span> Medir
                       </button>
-                      <button
-                        onClick={() => abrirRenombrar(m)}
-                        className="text-slate-600 dark:text-slate-300 hover:text-primary"
-                      >
-                        <span className="material-symbols-outlined text-sm">edit</span> Renombrar
-                      </button>
-                      <button
-                        onClick={() => abrirDetalles(m)}
-                        className="text-slate-600 dark:text-slate-300 hover:text-primary"
-                      >
-                        <span className="material-symbols-outlined text-sm">tune</span> Detalles
-                      </button>
+                      {roleId === 1 && (
+                        <>
+                          <button
+                            onClick={() => abrirRenombrar(m)}
+                            className="text-slate-600 dark:text-slate-300 hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span> Renombrar
+                          </button>
+                          <button
+                            onClick={() => abrirDetalles(m)}
+                            className="text-slate-600 dark:text-slate-300 hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-sm">tune</span> Detalles
+                          </button>
+                        </>
+                      )}
                       {/* El backend no expuso DELETE /sensores/{id}; por ahora deshabilitamos eliminar */}
-                      <button
-                        disabled
-                        title="Eliminar no disponible"
-                        className="text-red-400 cursor-not-allowed rounded px-2 py-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">delete</span> Eliminar
-                      </button>
+                      {roleId === 1 && (
+                        <button
+                          disabled
+                          title="Eliminar no disponible"
+                          className="text-red-400 cursor-not-allowed rounded px-2 py-1"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span> Eliminar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function FacturasPage() {
   const navigate = useNavigate();
+  const { roleId } = useAuth();
   const [facturas, setFacturas] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
@@ -80,6 +82,11 @@ export default function FacturasPage() {
           <button onClick={() => navigate("/alertas")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="material-symbols-outlined">notifications</span> Alertas
           </button>
+          {roleId === 1 && (
+            <button onClick={() => navigate("/usuarios")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+              <span className="material-symbols-outlined">group</span> Usuarios
+            </button>
+          )}
         </nav>
         <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
           <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 w-full">

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function DashboardPage() {
+  const { roleId } = useAuth();
   const [stats, setStats] = useState({
     usuarios: 0,
     facturas: 0,
@@ -55,6 +57,9 @@ export default function DashboardPage() {
             <a href="/medidores" className="hover:text-primary">Medidores</a>
             <a href="/facturas" className="hover:text-primary">Facturas</a>
             <a href="/alertas" className="hover:text-primary">Alertas</a>
+            {roleId === 1 && (
+              <a href="/usuarios" className="hover:text-primary">Usuarios</a>
+            )}
           </nav>
           <button className="bg-primary text-white px-4 py-2 rounded-lg font-bold hover:bg-primary/90">
             Cerrar sesión
