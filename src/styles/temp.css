@@ -1,0 +1,8 @@
+/* Base styles */
+.bg-gray-100 {
+  background-color: #f3f4f6;
+}
+
+.min-h-screen {
+  min-height: 100vh;
+}
