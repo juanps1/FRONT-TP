@@ -7,6 +7,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ServerStatus from "./components/ServerStatus";
 import MedidorDetallePage from "./pages/MedidorDetallePage";
+import UsersPage from "./pages/UsersPage";
+import RoleGuard from "./components/RoleGuard";
 
 function App() {
   return (
@@ -22,6 +24,15 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/medidores/:sensorId" element={<MedidorDetallePage />} />
+          {/* Solo administradores (rol id = 1) */}
+          <Route
+            path="/usuarios"
+            element={
+              <RoleGuard allow={[1]}>
+                <UsersPage />
+              </RoleGuard>
+            }
+          />
         </Routes>
       </div>
     </BrowserRouter>

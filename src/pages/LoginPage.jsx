@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", contrasena: "" });
   const [error, setError] = useState("");
   const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  const { setAuth, loading } = useAuth();
 
   useEffect(() => {
     const checkServer = async () => {
@@ -45,6 +47,8 @@ export default function LoginPage() {
         contrasena: formData.contrasena,
       });
       localStorage.setItem("token", res.data.token);
+      // Cargar rol y setear contexto
+      await setAuth(formData.email);
       navigate("/dashboard");
     } catch (err) {
       if (!err.response) {
@@ -149,9 +153,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="h-14 w-full rounded-lg bg-primary text-white font-bold hover:bg-primary/90 active:scale-95 transition"
+            disabled={loading}
+            className="h-14 w-full rounded-lg bg-primary text-white font-bold hover:bg-primary/90 active:scale-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Iniciar Sesión
+            {loading ? 'Cargando rol...' : 'Iniciar Sesión'}
           </button>
 
           <p className="text-center text-[#0d141b] dark:text-slate-300">
