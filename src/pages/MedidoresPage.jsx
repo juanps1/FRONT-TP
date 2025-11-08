@@ -55,6 +55,12 @@ export default function MedidoresPage() {
 
   const crearMedidor = async (e) => {
     e.preventDefault();
+    // Permisos: solo admin puede crear medidores
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden crear medidores.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
     try {
       // Preferencia: ID autogenerado por backend, enviamos solo { nombre }
       const createRes = await api.post("/sensores", { nombre: nuevo.nombre });
@@ -180,12 +186,22 @@ export default function MedidoresPage() {
   };
 
   const abrirRenombrar = (m) => {
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden renombrar.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
     setRenombrar({ id: m.id, nombre: m.nombre || '' });
     renameRef.current?.showModal();
   };
 
   const guardarRenombrar = async (e) => {
     e.preventDefault();
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden renombrar.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
     try {
       await api.put(`/sensores/${renombrar.id}`, { nombre: renombrar.nombre });
       setMedidores((prev) => prev.map((x) => x.id === renombrar.id ? { ...x, nombre: renombrar.nombre } : x));
@@ -205,6 +221,11 @@ export default function MedidoresPage() {
   };
 
   const abrirDetalles = (m) => {
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden editar detalles.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
     // convertir fecha a input date (YYYY-MM-DD)
     const toDate = (v) => {
       if (!v) return "";
@@ -228,6 +249,11 @@ export default function MedidoresPage() {
 
   const guardarDetalles = (e) => {
     e.preventDefault();
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden editar detalles.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
     const meta = JSON.parse(localStorage.getItem('sensorMeta') || '{}');
     meta[detalle.id] = {
       ...(meta[detalle.id] || {}),
@@ -265,13 +291,15 @@ export default function MedidoresPage() {
       <main className="p-6 lg:p-10">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-extrabold">Gestión de Medidores</h1>
-          <button
-            onClick={() => modalRef.current?.showModal()}
-            className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>
-            Nuevo Medidor
-          </button>
+          {roleId === 1 && (
+            <button
+              onClick={() => modalRef.current?.showModal()}
+              className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+              Nuevo Medidor
+            </button>
+          )}
         </div>
 
         {/* Mensajes */}
@@ -380,13 +408,15 @@ export default function MedidoresPage() {
           <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
             <p className="text-lg font-bold mb-2">No hay medidores registrados</p>
             <p className="text-slate-500 mb-4">¡Crea el primero para empezar a monitorear!</p>
-            <button
-              onClick={() => modalRef.current?.showModal()}
-              className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
-            >
-              <span className="material-symbols-outlined text-lg">add</span>
-              Crear Nuevo Medidor
-            </button>
+            {roleId === 1 && (
+              <button
+                onClick={() => modalRef.current?.showModal()}
+                className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                Crear Nuevo Medidor
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2430]">
