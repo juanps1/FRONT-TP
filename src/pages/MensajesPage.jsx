@@ -180,6 +180,16 @@ export default function MensajesPage() {
               className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-800"
             />
           </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <button onClick={()=>navigate('/dashboard')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Dashboard</button>
+            <button onClick={()=>navigate('/medidores')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Medidores</button>
+            <button onClick={()=>navigate('/facturas')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Facturas</button>
+            <button onClick={()=>navigate('/alertas')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Alertas</button>
+            <button onClick={()=>navigate('/procesos')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Procesos</button>
+            {roleId === 1 && (
+              <button onClick={()=>navigate('/usuarios')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Usuarios</button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">

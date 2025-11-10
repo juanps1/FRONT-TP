@@ -283,6 +283,7 @@ export default function MedidoresPage() {
           <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/facturas">Facturas</a>
           <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/alertas">Alertas</a>
           <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/mensajes">Mensajes</a>
+          <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/procesos">Procesos</a>
           {roleId === 1 && (
             <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/usuarios">Usuarios</a>
           )}

@@ -85,6 +85,9 @@ export default function FacturasPage() {
           <button onClick={() => navigate("/mensajes")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="material-symbols-outlined">chat</span> Mensajes
           </button>
+          <button onClick={() => navigate("/procesos")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+            <span className="material-symbols-outlined">analytics</span> Procesos
+          </button>
           {roleId === 1 && (
             <button onClick={() => navigate("/usuarios")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
               <span className="material-symbols-outlined">group</span> Usuarios

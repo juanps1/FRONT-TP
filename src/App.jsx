@@ -9,6 +9,7 @@ import ServerStatus from "./components/ServerStatus";
 import MedidorDetallePage from "./pages/MedidorDetallePage";
 import UsersPage from "./pages/UsersPage";
 import MensajesPage from "./pages/MensajesPage";
+import ProcesosPage from "./pages/ProcesosPage";
 import RoleGuard from "./components/RoleGuard";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/medidores/:sensorId" element={<MedidorDetallePage />} />
           <Route path="/mensajes" element={<MensajesPage />} />
+          <Route path="/procesos" element={<ProcesosPage />} />
           {/* Solo administradores (rol id = 1) */}
           <Route
             path="/usuarios"
