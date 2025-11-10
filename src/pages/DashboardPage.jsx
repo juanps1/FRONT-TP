@@ -57,6 +57,7 @@ export default function DashboardPage() {
             <a href="/medidores" className="hover:text-primary">Medidores</a>
             <a href="/facturas" className="hover:text-primary">Facturas</a>
             <a href="/alertas" className="hover:text-primary">Alertas</a>
+            <a href="/mensajes" className="hover:text-primary">Mensajes</a>
             {roleId === 1 && (
               <a href="/usuarios" className="hover:text-primary">Usuarios</a>
             )}

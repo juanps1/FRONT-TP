@@ -29,6 +29,9 @@ export default function AlertasPage() {
           <button className="flex items-center gap-3 p-2 rounded-lg bg-primary/20 dark:bg-primary/30 text-primary font-semibold">
             <span className="material-symbols-outlined">notifications</span> Alertas
           </button>
+          <button onClick={() => navigate('/mensajes')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+            <span className="material-symbols-outlined">chat</span> Mensajes
+          </button>
           {roleId === 1 && (
             <button onClick={() => navigate('/usuarios')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
               <span className="material-symbols-outlined">group</span> Usuarios
