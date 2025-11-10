@@ -142,6 +142,21 @@ export default function ProcesosPage() {
   const solicitarProceso = async (e) => {
     e.preventDefault();
     if (!validarFormulario()) return;
+    
+    // Verificar facturas vencidas antes de crear
+    try {
+      const vencidasRes = await api.get(`/facturas/usuario/${currentUserId}/tiene-vencidas`);
+      if (vencidasRes.data?.tieneVencidas) {
+        setFormErr('No puedes crear procesos con facturas vencidas. Por favor regulariza tu situación.');
+        setTimeout(() => {
+          navigate('/facturas');
+        }, 2000);
+        return;
+      }
+    } catch (err) {
+      console.error('Error verificando facturas:', err);
+    }
+
     try {
       setSubmitting(true);
       setFormMsg('Solicitud creada, procesando en segundo plano...');
@@ -159,7 +174,15 @@ export default function ProcesosPage() {
       setTimeout(()=> setFormMsg(''), 3000);
     } catch (err) {
       console.error('Error al crear solicitud', err);
-      setFormErr(err.response?.data?.message || 'No se pudo crear la solicitud');
+      // Capturar 403 (usuario con facturas vencidas)
+      if (err.response?.status === 403) {
+        setFormErr('Usuario con facturas vencidas. Regularice su situación para continuar.');
+        setTimeout(() => {
+          navigate('/facturas');
+        }, 2000);
+      } else {
+        setFormErr(err.response?.data?.message || err.response?.data?.mensaje || 'No se pudo crear la solicitud');
+      }
     } finally {
       setSubmitting(false);
     }

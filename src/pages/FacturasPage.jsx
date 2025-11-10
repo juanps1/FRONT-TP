@@ -1,59 +1,149 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export default function FacturasPage() {
   const navigate = useNavigate();
-  const { roleId } = useAuth();
+  const { roleId, email } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [facturas, setFacturas] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
-  const [nuevaFactura, setNuevaFactura] = useState({
+  const [msg, setMsg] = useState("");
+  const [errMsg, setErrMsg] = useState("");
+  
+  // Modal generar factura
+  const generarModalRef = useRef(null);
+  const [generarForm, setGenerarForm] = useState({
     usuarioId: "",
-    fechaEmision: "",
-    monto: "",
-    concepto: "",
+    fechaInicio: "",
+    fechaFin: "",
+    observaciones: ""
   });
+  const [generando, setGenerando] = useState(false);
+
+  // Modal pagar factura
+  const pagarModalRef = useRef(null);
+  const [pagarForm, setPagarForm] = useState({
+    facturaId: null,
+    montoPagado: "",
+    metodoPago: "transferencia"
+  });
+  const [pagando, setPagando] = useState(false);
+
+  // Modal ver pagos
+  const pagosModalRef = useRef(null);
+  const [pagosFactura, setPagosFactura] = useState([]);
+  const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
+
+  // Obtener ID usuario desde email
+  useEffect(() => {
+    const fetchUserId = async () => {
+      if (!email) return;
+      try {
+        const res = await api.get('/usuarios');
+        const user = (res.data || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (user) {
+          setCurrentUserId(user.id);
+          setGenerarForm(prev => ({ ...prev, usuarioId: user.id }));
+        }
+      } catch (e) { console.error(e); }
+    };
+    fetchUserId();
+  }, [email]);
 
   useEffect(() => {
-    cargarFacturas();
-  }, []);
+    if (currentUserId) cargarFacturas();
+  }, [currentUserId]);
 
   const cargarFacturas = async () => {
+    if (!currentUserId) return;
     try {
-      const res = await api.get("/facturas");
-      setFacturas(res.data);
+      // Si es admin, carga todas; si no, solo las del usuario
+      const endpoint = roleId === 1 ? "/facturas" : `/facturas/usuario/${currentUserId}`;
+      const res = await api.get(endpoint);
+      setFacturas(res.data || []);
     } catch (err) {
       console.error("Error al cargar facturas:", err);
     }
   };
 
-  const crearFactura = async (e) => {
+  const generarFactura = async (e) => {
     e.preventDefault();
+    setGenerando(true);
+    setErrMsg("");
+    setMsg("");
     try {
-      const res = await api.post("/facturas", {
-        usuario: { id: nuevaFactura.usuarioId },
-        fechaEmision: nuevaFactura.fechaEmision,
-        monto: parseFloat(nuevaFactura.monto),
-        concepto: nuevaFactura.concepto,
-        estado: "pendiente",
+      const res = await api.post("/facturas/generar", {
+        usuarioId: Number(generarForm.usuarioId),
+        fechaInicio: generarForm.fechaInicio,
+        fechaFin: generarForm.fechaFin,
+        observaciones: generarForm.observaciones || null
       });
-      setFacturas([...facturas, res.data]);
-      setNuevaFactura({ usuarioId: "", fechaEmision: "", monto: "", concepto: "" });
+      setFacturas(prev => [res.data, ...prev]);
+      setMsg("Factura generada correctamente");
+      setTimeout(() => setMsg(""), 3000);
+      setGenerarForm({ usuarioId: currentUserId || "", fechaInicio: "", fechaFin: "", observaciones: "" });
+      generarModalRef.current?.close();
     } catch (err) {
-      console.error("Error al crear factura:", err);
+      console.error("Error al generar factura:", err);
+      setErrMsg(err.response?.data?.mensaje || err.response?.data?.message || "No se pudo generar la factura");
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const abrirPagar = (factura) => {
+    setPagarForm({
+      facturaId: factura.id,
+      montoPagado: factura.monto || "",
+      metodoPago: "transferencia"
+    });
+    pagarModalRef.current?.showModal();
+  };
+
+  const registrarPago = async (e) => {
+    e.preventDefault();
+    setPagando(true);
+    setErrMsg("");
+    setMsg("");
+    try {
+      const res = await api.post("/pagos/registrar", {
+        facturaId: pagarForm.facturaId,
+        montoPagado: Number(pagarForm.montoPagado),
+        metodoPago: pagarForm.metodoPago
+      });
+      // Actualizar factura en la lista
+      setFacturas(prev => prev.map(f => f.id === res.data.facturaActualizada.id ? res.data.facturaActualizada : f));
+      setMsg(`Pago registrado. Factura ${res.data.facturaActualizada.estado}`);
+      setTimeout(() => setMsg(""), 3000);
+      pagarModalRef.current?.close();
+    } catch (err) {
+      console.error("Error al registrar pago:", err);
+      setErrMsg(err.response?.data?.mensaje || err.response?.data?.message || "No se pudo registrar el pago");
+    } finally {
+      setPagando(false);
+    }
+  };
+
+  const verPagos = async (factura) => {
+    try {
+      const res = await api.get(`/pagos/factura/${factura.id}`);
+      setPagosFactura(res.data || []);
+      setFacturaSeleccionada(factura);
+      pagosModalRef.current?.showModal();
+    } catch (err) {
+      console.error("Error al cargar pagos:", err);
     }
   };
 
   const facturasFiltradas = facturas.filter((f) => {
     const coincideBusqueda =
-      f.usuario?.nombreCompleto?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      f.usuarioId?.toString().includes(busqueda) ||
       f.id?.toString().includes(busqueda);
-    const coincideEstado =
-      filtroEstado === "Todos" ||
-      f.estado?.toLowerCase() === filtroEstado.toLowerCase();
-    return coincideBusqueda && coincideEstado;
+    const matchEstado = filtroEstado === "Todos" || f.estado?.toUpperCase() === filtroEstado.toUpperCase();
+    return coincideBusqueda && matchEstado;
   });
 
   return (
@@ -106,60 +196,27 @@ export default function FacturasPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap justify-between items-center mb-6">
             <h1 className="text-4xl font-black">Gestión de Facturas</h1>
+            <button
+              onClick={() => generarModalRef.current?.showModal()}
+              className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+              Generar Factura
+            </button>
           </div>
 
-          {/* Crear Factura */}
-          <details className="mb-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#182431]" open>
-            <summary className="cursor-pointer flex justify-between items-center p-4 font-semibold text-lg">
-              Crear Nueva Factura
-              <span className="material-symbols-outlined">expand_more</span>
-            </summary>
-            <form onSubmit={crearFactura} className="border-t border-gray-200 dark:border-gray-800 p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <label className="flex flex-col">
-                <p className="text-sm pb-2">ID de Usuario</p>
-                <input
-                  className="border rounded-lg p-3"
-                  value={nuevaFactura.usuarioId}
-                  onChange={(e) => setNuevaFactura({ ...nuevaFactura, usuarioId: e.target.value })}
-                  placeholder="Buscar o ingresar ID"
-                />
-              </label>
-              <label className="flex flex-col">
-                <p className="text-sm pb-2">Fecha de Emisión</p>
-                <input
-                  type="date"
-                  className="border rounded-lg p-3"
-                  value={nuevaFactura.fechaEmision}
-                  onChange={(e) => setNuevaFactura({ ...nuevaFactura, fechaEmision: e.target.value })}
-                />
-              </label>
-              <label className="flex flex-col">
-                <p className="text-sm pb-2">Monto</p>
-                <input
-                  type="number"
-                  className="border rounded-lg p-3"
-                  value={nuevaFactura.monto}
-                  onChange={(e) => setNuevaFactura({ ...nuevaFactura, monto: e.target.value })}
-                  placeholder="0.00"
-                />
-              </label>
-              <label className="flex flex-col">
-                <p className="text-sm pb-2">Concepto</p>
-                <input
-                  className="border rounded-lg p-3"
-                  value={nuevaFactura.concepto}
-                  onChange={(e) => setNuevaFactura({ ...nuevaFactura, concepto: e.target.value })}
-                  placeholder="Descripción del servicio"
-                />
-              </label>
-              <button
-                type="submit"
-                className="col-span-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90"
-              >
-                Crear Factura
-              </button>
-            </form>
-          </details>
+          {/* Mensajes */}
+          {(msg || errMsg) && (
+            <div
+              className={`mb-4 rounded-lg p-3 text-sm ${
+                errMsg
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                  : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+              }`}
+            >
+              {errMsg || msg}
+            </div>
+          )}
 
           {/* Barra de herramientas */}
           <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800 pb-4 mb-4">
@@ -168,7 +225,7 @@ export default function FacturasPage() {
               <input
                 type="text"
                 className="pl-10 border rounded-lg p-2 w-full"
-                placeholder="Buscar por ID o usuario..."
+                placeholder="Buscar por ID..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
@@ -181,67 +238,252 @@ export default function FacturasPage() {
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
                 <option>Todos</option>
-                <option>Pendiente</option>
-                <option>Pagada</option>
-                <option>Vencida</option>
+                <option>PENDIENTE</option>
+                <option>PAGADA</option>
+                <option>VENCIDA</option>
               </select>
             </label>
           </div>
 
           {/* Tabla */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#182431]">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-800 text-gray-500 uppercase">
+              <thead className="border-b border-gray-200 dark:border-gray-800 text-gray-500 uppercase bg-slate-50 dark:bg-slate-800/50">
                 <tr>
-                  <th className="px-6 py-3">ID Factura</th>
-                  <th className="px-6 py-3">Usuario</th>
+                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3">Usuario ID</th>
                   <th className="px-6 py-3">Estado</th>
-                  <th className="px-6 py-3">Fecha de Emisión</th>
+                  <th className="px-6 py-3">Emisión</th>
+                  <th className="px-6 py-3">Vencimiento</th>
                   <th className="px-6 py-3">Monto</th>
+                  <th className="px-6 py-3">Observaciones</th>
                   <th className="px-6 py-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {facturasFiltradas.map((f) => (
-                  <tr key={f.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-6 py-4 font-medium">#{f.id}</td>
-                    <td className="px-6 py-4">{f.usuario?.nombreCompleto}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          f.estado === "pagada"
-                            ? "bg-green-100 text-green-600"
-                            : f.estado === "pendiente"
-                            ? "bg-yellow-100 text-yellow-600"
-                            : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {f.estado}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{f.fechaEmision?.slice(0, 10)}</td>
-                    <td className="px-6 py-4">${f.monto}</td>
-                    <td className="px-6 py-4 text-center flex justify-center gap-2">
-                      <button
-                        onClick={() => navigate(`/facturas/${f.id}`)}
-                        className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
-                      >
-                        <span className="material-symbols-outlined text-gray-500">visibility</span>
-                      </button>
-                      <button
-                        onClick={() => alert("Registrar pago")}
-                        className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
-                      >
-                        <span className="material-symbols-outlined text-gray-500">payment</span>
-                      </button>
+                {facturasFiltradas.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                      No hay facturas que mostrar
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  facturasFiltradas.map((f) => (
+                    <tr key={f.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="px-6 py-4 font-medium">#{f.id}</td>
+                      <td className="px-6 py-4">{f.usuarioId}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
+                            f.estado === "PAGADA"
+                              ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300"
+                              : f.estado === "PENDIENTE"
+                              ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300"
+                              : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300"
+                          }`}
+                        >
+                          {f.estado}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">{f.fechaEmision?.slice(0, 10)}</td>
+                      <td className="px-6 py-4">{f.fechaVencimiento?.slice(0, 10)}</td>
+                      <td className="px-6 py-4 font-semibold">${f.monto?.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title={f.observaciones}>{f.observaciones || "—"}</td>
+                      <td className="px-6 py-4 text-center flex justify-center gap-2">
+                        <button
+                          onClick={() => verPagos(f)}
+                          className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                          title="Ver pagos"
+                        >
+                          <span className="material-symbols-outlined text-gray-500">visibility</span>
+                        </button>
+                        {(f.estado === "PENDIENTE" || f.estado === "VENCIDA") && (
+                          <button
+                            onClick={() => abrirPagar(f)}
+                            className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                            title="Registrar pago"
+                          >
+                            <span className="material-symbols-outlined text-green-600">payment</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </main>
+
+      {/* Modal Generar Factura */}
+      <dialog ref={generarModalRef} className="modal p-0 rounded-xl">
+        <form onSubmit={generarFactura} className="bg-white dark:bg-[#182431] rounded-xl p-6 w-[90%] max-w-md mx-auto">
+          <h2 className="text-xl font-bold mb-4 text-primary">Generar Factura</h2>
+          <p className="text-sm text-slate-500 mb-4">Genera una factura calculando el costo de los procesos completados en el rango de fechas.</p>
+          
+          <label className="block mb-4">
+            <p className="text-sm font-medium mb-2">Usuario ID</p>
+            <input
+              type="number"
+              value={generarForm.usuarioId}
+              onChange={(e) => setGenerarForm({ ...generarForm, usuarioId: e.target.value })}
+              className="border w-full rounded-lg p-2"
+              required
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <label className="block">
+              <p className="text-sm font-medium mb-2">Fecha Inicio</p>
+              <input
+                type="date"
+                value={generarForm.fechaInicio}
+                onChange={(e) => setGenerarForm({ ...generarForm, fechaInicio: e.target.value })}
+                className="border w-full rounded-lg p-2"
+                required
+              />
+            </label>
+            <label className="block">
+              <p className="text-sm font-medium mb-2">Fecha Fin</p>
+              <input
+                type="date"
+                value={generarForm.fechaFin}
+                onChange={(e) => setGenerarForm({ ...generarForm, fechaFin: e.target.value })}
+                className="border w-full rounded-lg p-2"
+                required
+              />
+            </label>
+          </div>
+
+          <label className="block mb-4">
+            <p className="text-sm font-medium mb-2">Observaciones (opcional)</p>
+            <input
+              value={generarForm.observaciones}
+              onChange={(e) => setGenerarForm({ ...generarForm, observaciones: e.target.value })}
+              className="border w-full rounded-lg p-2"
+              placeholder="Ej: Cierre mensual"
+            />
+          </label>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => generarModalRef.current?.close()}
+              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={generando}
+              className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50"
+            >
+              {generando ? "Generando..." : "Generar"}
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      {/* Modal Pagar Factura */}
+      <dialog ref={pagarModalRef} className="modal p-0 rounded-xl">
+        <form onSubmit={registrarPago} className="bg-white dark:bg-[#182431] rounded-xl p-6 w-[90%] max-w-md mx-auto">
+          <h2 className="text-xl font-bold mb-4 text-primary">Registrar Pago</h2>
+          <p className="text-sm text-slate-500 mb-4">Factura #{pagarForm.facturaId}</p>
+          
+          <label className="block mb-4">
+            <p className="text-sm font-medium mb-2">Monto Pagado</p>
+            <input
+              type="number"
+              step="0.01"
+              value={pagarForm.montoPagado}
+              onChange={(e) => setPagarForm({ ...pagarForm, montoPagado: e.target.value })}
+              className="border w-full rounded-lg p-2"
+              required
+            />
+          </label>
+
+          <label className="block mb-4">
+            <p className="text-sm font-medium mb-2">Método de Pago</p>
+            <select
+              value={pagarForm.metodoPago}
+              onChange={(e) => setPagarForm({ ...pagarForm, metodoPago: e.target.value })}
+              className="border w-full rounded-lg p-2"
+            >
+              <option value="transferencia">Transferencia</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="debito">Débito</option>
+              <option value="otro">Otro</option>
+            </select>
+          </label>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => pagarModalRef.current?.close()}
+              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={pagando}
+              className="px-4 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50"
+            >
+              {pagando ? "Registrando..." : "Registrar Pago"}
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      {/* Modal Ver Pagos */}
+      <dialog ref={pagosModalRef} className="modal p-0 rounded-xl">
+        <div className="bg-white dark:bg-[#182431] rounded-xl p-6 w-[90%] max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-primary">Pagos de Factura #{facturaSeleccionada?.id}</h2>
+            <button onClick={() => pagosModalRef.current?.close()} className="text-slate-400 hover:text-slate-600">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          
+          {pagosFactura.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4">No hay pagos registrados para esta factura.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b text-slate-500 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-2 text-left">ID</th>
+                    <th className="px-4 py-2 text-left">Fecha Pago</th>
+                    <th className="px-4 py-2 text-left">Monto</th>
+                    <th className="px-4 py-2 text-left">Método</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagosFactura.map(p => (
+                    <tr key={p.id} className="border-b">
+                      <td className="px-4 py-3">#{p.id}</td>
+                      <td className="px-4 py-3">{new Date(p.fechaPago).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold">${p.montoPagado?.toFixed(2)}</td>
+                      <td className="px-4 py-3 capitalize">{p.metodoPago}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={() => pagosModalRef.current?.close()}
+              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
