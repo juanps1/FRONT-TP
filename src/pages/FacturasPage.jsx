@@ -10,6 +10,8 @@ export default function FacturasPage() {
   const [facturas, setFacturas] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   const [msg, setMsg] = useState("");
   const [errMsg, setErrMsg] = useState("");
   
@@ -36,6 +38,11 @@ export default function FacturasPage() {
   const pagosModalRef = useRef(null);
   const [pagosFactura, setPagosFactura] = useState([]);
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
+
+  // Calcular si hay facturas vencidas
+  const tieneFacturasVencidas = facturas.some(f => f.estado?.toUpperCase() === "VENCIDA");
+  const cantidadVencidas = facturas.filter(f => f.estado?.toUpperCase() === "VENCIDA").length;
+  const cantidadPendientes = facturas.filter(f => f.estado?.toUpperCase() === "PENDIENTE").length;
 
   // Obtener ID usuario desde email
   useEffect(() => {
@@ -143,7 +150,21 @@ export default function FacturasPage() {
       f.usuarioId?.toString().includes(busqueda) ||
       f.id?.toString().includes(busqueda);
     const matchEstado = filtroEstado === "Todos" || f.estado?.toUpperCase() === filtroEstado.toUpperCase();
-    return coincideBusqueda && matchEstado;
+    
+    // Filtro por fechas
+    let matchFecha = true;
+    if (filtroFechaDesde) {
+      const fechaEmision = new Date(f.fechaEmision);
+      const fechaDesde = new Date(filtroFechaDesde);
+      matchFecha = matchFecha && fechaEmision >= fechaDesde;
+    }
+    if (filtroFechaHasta) {
+      const fechaEmision = new Date(f.fechaEmision);
+      const fechaHasta = new Date(filtroFechaHasta);
+      matchFecha = matchFecha && fechaEmision <= fechaHasta;
+    }
+    
+    return coincideBusqueda && matchEstado && matchFecha;
   });
 
   return (
@@ -195,17 +216,53 @@ export default function FacturasPage() {
       <main className="flex-1 overflow-y-auto p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap justify-between items-center mb-6">
-            <h1 className="text-4xl font-black">Gestión de Facturas</h1>
+            <div>
+              <h1 className="text-4xl font-black">Gestión de Facturas</h1>
+              <p className="text-sm text-slate-500 mt-1">Cada proceso completado genera automáticamente su factura individual</p>
+            </div>
             <button
               onClick={() => generarModalRef.current?.showModal()}
               className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
+              title="Generar factura consolidada manual (opcional)"
             >
               <span className="material-symbols-outlined text-lg">add</span>
-              Generar Factura
+              Generar Consolidada
             </button>
           </div>
 
           {/* Mensajes */}
+          {tieneFacturasVencidas && (
+            <div className="mb-4 rounded-lg p-4 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-l-4 border-red-600">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-2xl">warning</span>
+                <div>
+                  <p className="font-bold">⚠️ Tienes {cantidadVencidas} factura{cantidadVencidas > 1 ? 's' : ''} vencida{cantidadVencidas > 1 ? 's' : ''}</p>
+                  <p className="text-sm mt-1">No podrás crear nuevas solicitudes de proceso hasta que regularices tu situación. Por favor, realiza los pagos pendientes.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Resumen de facturas */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <p className="text-xs uppercase font-semibold text-slate-500 mb-1">Total Facturas</p>
+              <p className="text-2xl font-bold">{facturas.length}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20">
+              <p className="text-xs uppercase font-semibold text-yellow-700 dark:text-yellow-300 mb-1">Pendientes</p>
+              <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">{cantidadPendientes}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+              <p className="text-xs uppercase font-semibold text-red-700 dark:text-red-300 mb-1">Vencidas</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{cantidadVencidas}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+              <p className="text-xs uppercase font-semibold text-green-700 dark:text-green-300 mb-1">Pagadas</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{facturas.filter(f => f.estado?.toUpperCase() === "PAGADA").length}</p>
+            </div>
+          </div>
+          
           {(msg || errMsg) && (
             <div
               className={`mb-4 rounded-lg p-3 text-sm ${
@@ -219,8 +276,8 @@ export default function FacturasPage() {
           )}
 
           {/* Barra de herramientas */}
-          <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800 pb-4 mb-4">
-            <div className="relative w-64">
+          <div className="flex flex-wrap items-end gap-3 border-b border-gray-200 dark:border-gray-800 pb-4 mb-4">
+            <div className="relative flex-1 min-w-[200px]">
               <span className="material-symbols-outlined absolute left-3 top-2.5 text-gray-400">search</span>
               <input
                 type="text"
@@ -230,10 +287,11 @@ export default function FacturasPage() {
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              Filtrar por estado:
+            
+            <label className="flex flex-col">
+              <span className="text-xs text-slate-500 mb-1">Estado</span>
               <select
-                className="border rounded-lg p-2"
+                className="border rounded-lg p-2 text-sm"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
@@ -243,6 +301,38 @@ export default function FacturasPage() {
                 <option>VENCIDA</option>
               </select>
             </label>
+
+            <label className="flex flex-col">
+              <span className="text-xs text-slate-500 mb-1">Desde</span>
+              <input
+                type="date"
+                className="border rounded-lg p-2 text-sm"
+                value={filtroFechaDesde}
+                onChange={(e) => setFiltroFechaDesde(e.target.value)}
+              />
+            </label>
+
+            <label className="flex flex-col">
+              <span className="text-xs text-slate-500 mb-1">Hasta</span>
+              <input
+                type="date"
+                className="border rounded-lg p-2 text-sm"
+                value={filtroFechaHasta}
+                onChange={(e) => setFiltroFechaHasta(e.target.value)}
+              />
+            </label>
+
+            <button
+              onClick={() => {
+                setBusqueda("");
+                setFiltroEstado("Todos");
+                setFiltroFechaDesde("");
+                setFiltroFechaHasta("");
+              }}
+              className="px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-sm hover:bg-slate-50"
+            >
+              Limpiar
+            </button>
           </div>
 
           {/* Tabla */}
@@ -275,9 +365,9 @@ export default function FacturasPage() {
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                            f.estado === "PAGADA"
+                            f.estado?.toUpperCase() === "PAGADA"
                               ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300"
-                              : f.estado === "PENDIENTE"
+                              : f.estado?.toUpperCase() === "PENDIENTE"
                               ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300"
                               : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300"
                           }`}
@@ -289,23 +379,30 @@ export default function FacturasPage() {
                       <td className="px-6 py-4">{f.fechaVencimiento?.slice(0, 10)}</td>
                       <td className="px-6 py-4 font-semibold">${f.monto?.toFixed(2)}</td>
                       <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title={f.observaciones}>{f.observaciones || "—"}</td>
-                      <td className="px-6 py-4 text-center flex justify-center gap-2">
-                        <button
-                          onClick={() => verPagos(f)}
-                          className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
-                          title="Ver pagos"
-                        >
-                          <span className="material-symbols-outlined text-gray-500">visibility</span>
-                        </button>
-                        {(f.estado === "PENDIENTE" || f.estado === "VENCIDA") && (
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => abrirPagar(f)}
-                            className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
-                            title="Registrar pago"
+                            onClick={() => verPagos(f)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold"
+                            title="Ver pagos"
                           >
-                            <span className="material-symbols-outlined text-green-600">payment</span>
+                            <span className="material-symbols-outlined text-sm text-gray-500">visibility</span>
+                            Ver Pagos
                           </button>
-                        )}
+                          {(f.estado?.toUpperCase() === "PENDIENTE" || f.estado?.toUpperCase() === "VENCIDA") && (
+                            <button
+                              onClick={() => abrirPagar(f)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 text-xs font-semibold"
+                              title="Registrar pago"
+                            >
+                              <span className="material-symbols-outlined text-sm">payment</span>
+                              Pagar
+                            </button>
+                          )}
+                          {f.estado?.toUpperCase() === "PAGADA" && (
+                            <span className="text-xs text-gray-500">Pagada</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -319,8 +416,8 @@ export default function FacturasPage() {
       {/* Modal Generar Factura */}
       <dialog ref={generarModalRef} className="modal p-0 rounded-xl">
         <form onSubmit={generarFactura} className="bg-white dark:bg-[#182431] rounded-xl p-6 w-[90%] max-w-md mx-auto">
-          <h2 className="text-xl font-bold mb-4 text-primary">Generar Factura</h2>
-          <p className="text-sm text-slate-500 mb-4">Genera una factura calculando el costo de los procesos completados en el rango de fechas.</p>
+          <h2 className="text-xl font-bold mb-2 text-primary">Generar Factura Consolidada</h2>
+          <p className="text-sm text-slate-500 mb-4">⚠️ Opcional: Genera una factura sumando el costo de múltiples procesos completados en el rango de fechas. Las facturas individuales se generan automáticamente al completarse cada proceso.</p>
           
           <label className="block mb-4">
             <p className="text-sm font-medium mb-2">Usuario ID</p>
