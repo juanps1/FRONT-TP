@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/Navbar';
 
 const TIPOS = [
   {
@@ -269,30 +270,9 @@ export default function ProcesosPage() {
   }, [solicitudes, filtroEstado, filtroTipo]);
 
   return (
-    <div className="flex h-screen bg-background-light dark:bg-background-dark text-[#212529] dark:text-gray-200">
-      {/* Sidebar navegación */}
-      <aside className="w-64 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#182431] p-4">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-full bg-primary/10 p-3">
-            <span className="material-symbols-outlined text-primary text-3xl">analytics</span>
-          </div>
-          <div>
-            <h1 className="font-bold text-lg text-primary">Procesos</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Análisis de datos</p>
-          </div>
-        </div>
-        <nav className="flex flex-col gap-2">
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span className="material-symbols-outlined">dashboard</span> Dashboard</button>
-          <button onClick={() => navigate('/medidores')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span className="material-symbols-outlined">speed</span> Medidores</button>
-          <button onClick={() => navigate('/facturas')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span className="material-symbols-outlined">receipt_long</span> Facturas</button>
-          <button onClick={() => navigate('/alertas')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span className="material-symbols-outlined">notifications</span> Alertas</button>
-          <button onClick={() => navigate('/mensajes')} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span className="material-symbols-outlined">chat</span> Mensajes</button>
-          <button className="flex items-center gap-3 p-2 rounded-lg bg-primary/20 dark:bg-primary/30 text-primary font-semibold"><span className="material-symbols-outlined">analytics</span> Procesos</button>
-        </nav>
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto p-8">
+    <div className="bg-background-light dark:bg-background-dark text-[#212529] dark:text-gray-200 min-h-screen">
+      <Navbar />
+      <main className="p-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-black mb-6">Gestión de Procesos de Análisis</h1>
 

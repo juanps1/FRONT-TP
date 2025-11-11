@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import Navbar from "../components/Navbar";
 
 export default function FacturasPage() {
   const navigate = useNavigate();
@@ -168,49 +169,8 @@ export default function FacturasPage() {
   });
 
   return (
-    <div className="flex h-screen bg-background-light dark:bg-background-dark text-[#212529] dark:text-gray-200">
-      {/* Sidebar */}
-      <aside className="w-64 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#182431] p-4">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="rounded-full bg-primary/10 p-3">
-            <span className="material-symbols-outlined text-primary text-3xl">receipt_long</span>
-          </div>
-          <div>
-            <h1 className="font-bold text-lg text-primary">Persistencia Políglota</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Administración</p>
-          </div>
-        </div>
-        <nav className="flex flex-col gap-2">
-          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">dashboard</span> Dashboard
-          </button>
-          <button onClick={() => navigate("/medidores")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">speed</span> Medidores
-          </button>
-          <button className="flex items-center gap-3 p-2 rounded-lg bg-primary/20 dark:bg-primary/30 text-primary font-semibold">
-            <span className="material-symbols-outlined">receipt_long</span> Facturas
-          </button>
-          <button onClick={() => navigate("/alertas")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">notifications</span> Alertas
-          </button>
-          <button onClick={() => navigate("/mensajes")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">chat</span> Mensajes
-          </button>
-          <button onClick={() => navigate("/procesos")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">analytics</span> Procesos
-          </button>
-          {roleId === 1 && (
-            <button onClick={() => navigate("/usuarios")} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-              <span className="material-symbols-outlined">group</span> Usuarios
-            </button>
-          )}
-        </nav>
-        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 w-full">
-            <span className="material-symbols-outlined">logout</span> Salir
-          </button>
-        </div>
-      </aside>
+    <div className="bg-background-light dark:bg-background-dark text-[#212529] dark:text-gray-200 min-h-screen">
+      <Navbar />
 
       {/* Main */}
       <main className="flex-1 overflow-y-auto p-8">

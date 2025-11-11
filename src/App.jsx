@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage";
 import ServerStatus from "./components/ServerStatus";
 import MedidorDetallePage from "./pages/MedidorDetallePage";
 import UsersPage from "./pages/UsersPage";
+import RolesPage from "./pages/RolesPage";
 import MensajesPage from "./pages/MensajesPage";
 import ProcesosPage from "./pages/ProcesosPage";
 import RoleGuard from "./components/RoleGuard";
@@ -34,6 +35,14 @@ function App() {
             element={
               <RoleGuard allow={[1]}>
                 <UsersPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <RoleGuard allow={[1]}>
+                <RolesPage />
               </RoleGuard>
             }
           />

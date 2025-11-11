@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client"; // lo vamos a crear más abajo
+import Navbar from "../components/Navbar";
 
 export default function FacturaDetallePage() {
   const { id } = useParams();
@@ -40,12 +41,7 @@ export default function FacturaDetallePage() {
 
   return (
     <div className="font-display bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark min-h-screen">
-      <header className="flex items-center justify-between border-b border-border-light dark:border-border-dark px-6 py-3 bg-container-light dark:bg-container-dark">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-bold">Persistencia Políglota</h2>
-        </div>
-      </header>
-
+      <Navbar />
       <main className="w-full flex-1 p-4 sm:p-6 md:p-10">
         <div className="mx-auto flex max-w-4xl flex-col gap-8">
           {/* Detalle de Factura */}

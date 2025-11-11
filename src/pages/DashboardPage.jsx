@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import api from "../api/client";
-import { useAuth } from "../context/AuthContext";
+import Navbar from "../components/Navbar";
 
 export default function DashboardPage() {
-  const { roleId } = useAuth();
   const [stats, setStats] = useState({
-    usuarios: 0,
-    facturas: 0,
-    alertas: 0,
-    medidores: 0,
+    sensores: 0,
+    mediciones: 0,
   });
+  const [statsError, setStatsError] = useState({ sensores: false, mediciones: false });
   const [actividad, setActividad] = useState([]);
 
   useEffect(() => {
@@ -17,19 +15,34 @@ export default function DashboardPage() {
   }, []);
 
   const cargarDatos = async () => {
+    const errors = { sensores: false, mediciones: false };
+    
     try {
-      const [usuarios, facturas, alertas, mediciones] = await Promise.all([
-        api.get("/usuarios"),
-        api.get("/facturas"),
-        api.get("/alertas"),
-        api.get("/mediciones"),
-      ]);
+      // Cargar sensores
+      let sensoresCount = 0;
+      try {
+        const sensoresRes = await api.get("/sensores");
+        sensoresCount = (sensoresRes.data || []).length;
+      } catch (err) {
+        errors.sensores = true;
+        console.error('Error cargando sensores:', err.response?.status);
+      }
+      
+      // Cargar mediciones
+      let medicionesCount = 0;
+      try {
+        const medicionesRes = await api.get("/mediciones");
+        medicionesCount = (medicionesRes.data || []).length;
+      } catch (err) {
+        errors.mediciones = true;
+        console.error('Error cargando mediciones:', err.response?.status);
+      }
+      
       setStats({
-        usuarios: usuarios.data.length,
-        facturas: facturas.data.length,
-        alertas: alertas.data.length,
-        medidores: mediciones.data.length,
+        sensores: sensoresCount,
+        mediciones: medicionesCount,
       });
+      setStatsError(errors);
 
       // Actividad simulada, pero podés reemplazar con /api/logs si tenés
       setActividad([
@@ -45,42 +58,30 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark font-display">
-      {/* Header */}
-      <header className="sticky top-0 z-10 w-full bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
-        <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-2xl">polymer</span>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Persistencia Políglota</h2>
-          </div>
-          <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
-            <a className="text-primary font-semibold">Dashboard</a>
-            <a href="/medidores" className="hover:text-primary">Medidores</a>
-            <a href="/facturas" className="hover:text-primary">Facturas</a>
-            <a href="/alertas" className="hover:text-primary">Alertas</a>
-            <a href="/mensajes" className="hover:text-primary">Mensajes</a>
-            <a href="/procesos" className="hover:text-primary">Procesos</a>
-            {roleId === 1 && (
-              <a href="/usuarios" className="hover:text-primary">Usuarios</a>
-            )}
-          </nav>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg font-bold hover:bg-primary/90">
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Main */}
       <main className="flex-grow container mx-auto px-6 py-10">
         <h1 className="text-3xl font-black mb-8 text-slate-900 dark:text-white">
-          ¡Bienvenido de nuevo, Admin!
+          ¡Bienvenido de nuevo!
         </h1>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <Card titulo="Total de Usuarios" valor={stats.usuarios} color="blue" icon="group" />
-          <Card titulo="Facturas Generadas" valor={stats.facturas} color="green" icon="receipt_long" />
-          <Card titulo="Alertas Activas" valor={stats.alertas} color="red" icon="notifications_active" />
-          <Card titulo="Medidores Activos" valor={stats.medidores} color="orange" icon="speed" />
+        {/* Cards: solo sensores y mediciones */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+          <Card 
+            titulo="Sensores" 
+            valor={stats.sensores} 
+            color="orange" 
+            icon="speed"
+            error={statsError.sensores}
+          />
+          <Card 
+            titulo="Mediciones" 
+            valor={stats.mediciones} 
+            color="green" 
+            icon="monitoring"
+            error={statsError.mediciones}
+          />
         </div>
 
         {/* Secciones */}
@@ -134,7 +135,7 @@ export default function DashboardPage() {
   );
 }
 
-function Card({ titulo, valor, color, icon }) {
+function Card({ titulo, valor, color, icon, error }) {
   const colores = {
     blue: "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
     green: "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400",
@@ -147,8 +148,13 @@ function Card({ titulo, valor, color, icon }) {
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-bold">{valor}</h2>
+        <h2 className="text-2xl font-bold">{error ? '—' : valor}</h2>
         <p className="text-sm text-slate-500">{titulo}</p>
+        {error && (
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+            ⚠️ Endpoint no disponible
+          </p>
+        )}
       </div>
     </div>
   );

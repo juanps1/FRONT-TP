@@ -13,12 +13,23 @@ export default function LoginPage() {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        await api.get('/roles');
+        // Usar endpoint público para verificar conectividad
+        await api.get('/auth/health').catch(() => {
+          // Si /auth/health no existe, intentar con /usuarios sin token
+          return api.get('/usuarios', { headers: { Authorization: '' } });
+        });
         setServerStatus('online');
         setError('');
       } catch (err) {
-        setServerStatus('offline');
-        setError('El servidor no está disponible. Por favor, inténtelo más tarde.');
+        // Si falla, marcar como offline solo si es un error de red
+        if (!err.response || err.response.status >= 500) {
+          setServerStatus('offline');
+          setError('El servidor no está disponible. Por favor, inténtelo más tarde.');
+        } else {
+          // Si hay respuesta pero es 401/403, el servidor está online
+          setServerStatus('online');
+          setError('');
+        }
       }
     };
 
@@ -51,11 +62,15 @@ export default function LoginPage() {
       await setAuth(formData.email);
       navigate("/dashboard");
     } catch (err) {
+      console.error('Login error:', err);
       if (!err.response) {
-        setError("No se puede conectar con el servidor.");
+        setError("No se puede conectar con el servidor. Verifica que el backend esté corriendo en puerto 8080.");
         setServerStatus('offline');
+      } else if (err.response.status === 403 && err.response.data === "Invalid CORS request") {
+        setError("Error de configuración CORS en el servidor. Contacta al administrador del sistema.");
+        console.error("CORS ERROR: El backend necesita configuración CORS. Ver BACKEND_CORS_FIX.md");
       } else {
-        setError(err.response?.data?.message || "Credenciales inválidas.");
+        setError(err.response?.data?.message || err.response?.data?.error || "Credenciales inválidas.");
       }
     }
   };
@@ -100,7 +115,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-[#0d141b] dark:text-white text-3xl sm:text-4xl font-black text-center">
-            Persistencia Políglota
+            Sensora
           </h1>
         </div>
 

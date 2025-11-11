@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import Navbar from "../components/Navbar";
 
 export default function MedidoresPage() {
   const navigate = useNavigate();
@@ -176,12 +177,48 @@ export default function MedidoresPage() {
   }, [medidores]);
 
   const eliminarMedidor = async (id) => {
-    if (!window.confirm("¿Seguro que deseas eliminar este medidor?")) return;
+    // Permisos: solo admin puede eliminar medidores
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden eliminar medidores.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
+    const confirmado = window.confirm(
+      'Esta acción eliminará TODAS las mediciones del sensor y luego el sensor. ¿Deseas continuar?'
+    );
+    if (!confirmado) return;
     try {
-      await api.delete(`/mediciones/${id}`);
-      setMedidores(medidores.filter((m) => m.id !== id));
+      // 1) Borrar mediciones del sensor (id del sensor)
+      try {
+        await api.delete(`/mediciones/sensor/${id}`);
+      } catch (e1) {
+        // Si no hay mediciones o endpoint devuelve 404, continuamos con la eliminación del sensor
+        const st = e1.response?.status;
+        if (st && st !== 404) throw e1;
+      }
+      // 2) Borrar el sensor
+      await api.delete(`/sensores/${id}`);
+      // 3) Limpiar metadata local
+      const meta = JSON.parse(localStorage.getItem('sensorMeta') || '{}');
+      if (meta[id]) {
+        delete meta[id];
+        localStorage.setItem('sensorMeta', JSON.stringify(meta));
+      }
+      // 4) Refrescar lista
+      setMedidores((prev) => prev.filter((m) => m.id !== id));
+      setMsg('Sensor eliminado correctamente');
+      setTimeout(() => setMsg(''), 2500);
     } catch (err) {
-      console.error("Error al eliminar:", err);
+      console.error('Error al eliminar sensor:', err);
+      const status = err.response?.status;
+      if (status === 403) {
+        setErrMsg('Permiso denegado por el servidor (403).');
+      } else if (status === 404) {
+        setErrMsg('Sensor no encontrado (404).');
+      } else {
+        setErrMsg(err.response?.data?.message || 'No se pudo eliminar el sensor.');
+      }
+      setTimeout(() => setErrMsg(''), 3500);
     }
   };
 
@@ -274,21 +311,7 @@ export default function MedidoresPage() {
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 min-h-screen font-display">
-      <header className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-3 bg-white dark:bg-[#182431]">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-primary">Persistencia Políglota</h2>
-        </div>
-        <nav className="flex items-center gap-6 text-sm font-semibold">
-          <a className="text-primary" href="#">Medidores</a>
-          <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/facturas">Facturas</a>
-          <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/alertas">Alertas</a>
-          <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/mensajes">Mensajes</a>
-          <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/procesos">Procesos</a>
-          {roleId === 1 && (
-            <a className="hover:text-primary text-slate-600 dark:text-slate-300" href="/usuarios">Usuarios</a>
-          )}
-        </nav>
-      </header>
+      <Navbar />
 
       <main className="p-6 lg:p-10">
         <div className="flex justify-between items-center mb-6">
@@ -492,12 +515,11 @@ export default function MedidoresPage() {
                           </button>
                         </>
                       )}
-                      {/* El backend no expuso DELETE /sensores/{id}; por ahora deshabilitamos eliminar */}
                       {roleId === 1 && (
                         <button
-                          disabled
-                          title="Eliminar no disponible"
-                          className="text-red-400 cursor-not-allowed rounded px-2 py-1"
+                          onClick={() => eliminarMedidor(m.id)}
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 rounded px-2 py-1"
+                          title="Eliminar sensor y sus mediciones"
                         >
                           <span className="material-symbols-outlined text-sm">delete</span> Eliminar
                         </button>

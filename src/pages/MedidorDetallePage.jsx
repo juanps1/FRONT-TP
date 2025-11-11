@@ -1,15 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import Navbar from "../components/Navbar";
 
 export default function MedidorDetallePage() {
   const { sensorId } = useParams();
   const location = useLocation();
+  const { roleId } = useAuth();
   const [mediciones, setMediciones] = useState([]);
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [nuevaMedicion, setNuevaMedicion] = useState({ temperatura: "", humedad: "", fechaHora: "" }); // fechaHora LocalDateTime sin zona
   const [errorForm, setErrorForm] = useState("");
+  const [msg, setMsg] = useState("");
+  const [errMsg, setErrMsg] = useState("");
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -93,11 +98,36 @@ export default function MedidorDetallePage() {
     }
   };
 
+  const eliminarMedicion = async (medicionId) => {
+    if (roleId !== 1) {
+      setErrMsg('Permiso denegado: solo administradores pueden eliminar mediciones.');
+      setTimeout(() => setErrMsg(''), 3000);
+      return;
+    }
+    const confirmado = window.confirm('¿Deseas eliminar esta medición? Esta acción no se puede deshacer.');
+    if (!confirmado) return;
+    try {
+      await api.delete(`/mediciones/${medicionId}`);
+      setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
+      setMsg('Medición eliminada');
+      setTimeout(() => setMsg(''), 2500);
+    } catch (error) {
+      console.error('Error al eliminar medición:', error);
+      const status = error.response?.status;
+      if (status === 403) {
+        setErrMsg('Permiso denegado por el servidor (403).');
+      } else if (status === 404) {
+        setErrMsg('Medición no encontrada (404).');
+      } else {
+        setErrMsg(error.response?.data?.message || 'No se pudo eliminar la medición.');
+      }
+      setTimeout(() => setErrMsg(''), 3500);
+    }
+  };
+
   return (
     <div className="font-display bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark min-h-screen">
-      <header className="flex h-16 items-center justify-between border-b border-border-light dark:border-border-dark px-6 bg-card-light dark:bg-card-dark/80 backdrop-blur-sm">
-        <h2 className="text-lg font-bold text-primary">Persistencia Políglota</h2>
-      </header>
+      <Navbar />
 
       <main className="flex justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-6xl flex flex-col gap-8">
@@ -118,6 +148,17 @@ export default function MedidorDetallePage() {
           {/* Filtros */}
           <div className="rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-6">
             <h2 className="text-xl font-bold mb-4">Historial de Mediciones</h2>
+            {(msg || errMsg) && (
+              <div
+                className={`mb-4 rounded-lg p-3 text-sm ${
+                  errMsg
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                }`}
+              >
+                {errMsg || msg}
+              </div>
+            )}
 
             <div className="flex flex-wrap items-end gap-4 border-b border-border-light dark:border-border-dark pb-6 mb-6">
               <label className="flex flex-col min-w-40 flex-1">
@@ -161,6 +202,11 @@ export default function MedidorDetallePage() {
                     <th className="px-6 py-3 text-sm font-semibold text-muted-light dark:text-muted-dark text-right">
                       Humedad (%)
                     </th>
+                    {roleId === 1 && (
+                      <th className="px-6 py-3 text-sm font-semibold text-muted-light dark:text-muted-dark text-right">
+                        Acciones
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -175,11 +221,22 @@ export default function MedidorDetallePage() {
                         </td>
                         <td className="px-6 py-3 text-right">{m.temperatura}</td>
                         <td className="px-6 py-3 text-right">{m.humedad}</td>
+                        {roleId === 1 && (
+                          <td className="px-6 py-3 text-right">
+                            <button
+                              onClick={() => eliminarMedicion(m.id)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-700"
+                              title="Eliminar medición"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="3" className="p-4 text-center text-muted-light">
+                      <td colSpan={roleId === 1 ? 4 : 3} className="p-4 text-center text-muted-light">
                         No hay mediciones disponibles
                       </td>
                     </tr>

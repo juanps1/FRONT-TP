@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function NewConversationModal({ isOpen, onClose, onCreate, currentUserId }) {
+  const { roleId } = useAuth();
   const [tipo, setTipo] = useState('privada'); // 'privada' o 'grupal'
   const [usuarios, setUsuarios] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -9,6 +11,9 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
   const [nombreGrupo, setNombreGrupo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+  const [searchEmail, setSearchEmail] = useState('');
+  const [resolviendo, setResolviendo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -17,15 +22,53 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
   }, [isOpen]);
 
   const cargarUsuarios = async () => {
+    setLoadingUsuarios(true);
+    setError('');
     try {
+      // Si el endpoint estuviera restringido para no-admin, capturamos 403 y degradamos.
       const res = await api.get('/usuarios');
       // Filtrar usuario actual
       const filtered = (res.data || []).filter(u => u.id !== currentUserId);
       setUsuarios(filtered);
     } catch (err) {
-      console.error('Error al cargar usuarios:', err);
-      setError('No se pudo cargar la lista de usuarios');
+      const status = err.response?.status;
+      // Evitamos ruido en consola; mantenemos solo UI amigable.
+      if (status === 401 || status === 403) {
+        setError('No tenés permiso para listar usuarios. Podés crear conversación buscando por email.');
+      } else {
+        setError('No se pudo cargar la lista de usuarios');
+      }
+      setUsuarios([]);
+    } finally {
+      setLoadingUsuarios(false);
     }
+  };
+
+  // Resolver id de usuario por email probando endpoints comunes
+  const resolveUserIdByEmail = async (email) => {
+    const e = String(email || '').trim();
+    if (!e) return null;
+    // 1) /usuarios/search?query=
+    try {
+      const r = await api.get('/usuarios/search', { params: { query: e } });
+      const list = r.data || [];
+      const found = list.find(u => u.email?.toLowerCase() === e.toLowerCase());
+      if (found?.id) return found.id;
+    } catch (_) {}
+    // 2) /usuarios/by-email?email=
+    try {
+      const r = await api.get('/usuarios/by-email', { params: { email: e } });
+      const u = r.data;
+      if (u?.id) return u.id;
+    } catch (_) {}
+    // 3) /usuarios?email=
+    try {
+      const r = await api.get('/usuarios', { params: { email: e } });
+      const list = Array.isArray(r.data) ? r.data : (r.data?.content || []);
+      const found = list.find(u => u.email?.toLowerCase() === e.toLowerCase());
+      if (found?.id) return found.id;
+    } catch (_) {}
+    return null;
   };
 
   const handleCreate = async (e) => {
@@ -35,14 +78,30 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
 
     try {
       if (tipo === 'privada') {
-        if (!selectedUserId) {
-          setError('Selecciona un usuario');
+        let targetId = selectedUserId ? Number(selectedUserId) : null;
+        if (!targetId && searchEmail) {
+          setResolviendo(true);
+          targetId = await resolveUserIdByEmail(searchEmail);
+          setResolviendo(false);
+          if (!targetId) {
+            setError('No se encontró un usuario con ese email');
+            setLoading(false);
+            return;
+          }
+        }
+        if (!targetId) {
+          setError('Selecciona un usuario o ingresá un email');
+          setLoading(false);
+          return;
+        }
+        if (targetId === currentUserId) {
+          setError('No podés iniciar una conversación con vos mismo');
           setLoading(false);
           return;
         }
         const res = await api.post('/conversaciones/privada', {
           usuario1Id: currentUserId,
-          usuario2Id: Number(selectedUserId)
+          usuario2Id: Number(targetId)
         });
         onCreate(res.data);
       } else {
@@ -138,53 +197,85 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
           {tipo === 'privada' && (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Selecciona un usuario</label>
+              {loadingUsuarios && (
+                <div className="text-xs mb-2 text-slate-500">Cargando usuarios...</div>
+              )}
               <select
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800"
+                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 disabled:opacity-50"
                 required
+                disabled={!!error || loadingUsuarios || usuarios.length === 0}
               >
                 <option value="">-- Selecciona --</option>
                 {usuarios.map(u => (
                   <option key={u.id} value={u.id}>
-                    {u.nombreCompleto} ({u.email})
+                    {u.nombreCompleto || 'Sin nombre'} ({u.email})
                   </option>
                 ))}
               </select>
+              {error && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={cargarUsuarios}
+                    className="text-xs self-start px-2 py-1 rounded bg-primary text-white hover:bg-primary/90"
+                  >Reintentar</button>
+                </div>
+              )}
+              {/* Búsqueda por email como alternativa cuando no se puede listar */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2">O ingresá el email del usuario</label>
+                <input
+                  type="email"
+                  value={searchEmail}
+                  onChange={(e)=>setSearchEmail(e.target.value)}
+                  placeholder="usuario@correo.com"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800"
+                />
+                {resolviendo && <p className="text-xs text-slate-500 mt-1">Buscando usuario…</p>}
+              </div>
             </div>
           )}
 
-          {/* Conversación grupal */}
+          {/* Conversación grupal (solo si hay usuarios y no hay error). Si el list endpoint está restringido se deshabilita. */}
           {tipo === 'grupal' && (
             <>
+              {error && (
+                <p className="text-xs mb-2 text-amber-600">No se puede crear conversación grupal sin listado de usuarios.</p>
+              )}
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Nombre del grupo</label>
                 <input
                   type="text"
                   value={nombreGrupo}
                   onChange={(e) => setNombreGrupo(e.target.value)}
-                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 disabled:opacity-50"
                   placeholder="Ej: Equipo de proyecto"
                   required
+                  disabled={!!error}
                 />
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Participantes</label>
                 <div className="border border-slate-300 dark:border-slate-700 rounded-lg p-3 max-h-48 overflow-y-auto bg-white dark:bg-slate-800">
-                  {usuarios.length === 0 ? (
+                  {loadingUsuarios && <p className="text-xs text-slate-500">Cargando usuarios…</p>}
+                  {!loadingUsuarios && usuarios.length === 0 && !error && (
                     <p className="text-sm text-slate-500">No hay usuarios disponibles</p>
-                  ) : (
-                    usuarios.map(u => (
-                      <label key={u.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 px-2 rounded">
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.includes(u.id)}
-                          onChange={() => toggleUserSelection(u.id)}
-                          className="text-primary"
-                        />
-                        <span className="text-sm">{u.nombreCompleto}</span>
-                      </label>
-                    ))
+                  )}
+                  {!error && usuarios.map(u => (
+                    <label key={u.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 px-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.includes(u.id)}
+                        onChange={() => toggleUserSelection(u.id)}
+                        className="text-primary"
+                      />
+                      <span className="text-sm">{u.nombreCompleto || u.email}</span>
+                    </label>
+                  ))}
+                  {error && (
+                    <p className="text-xs text-red-600">{error}</p>
                   )}
                 </div>
               </div>
@@ -207,7 +298,7 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (tipo === 'privada' && (!selectedUserId || !!error)) || (tipo === 'grupal' && (!!error || selectedUserIds.length === 0))}
               className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? 'Creando...' : 'Crear'}

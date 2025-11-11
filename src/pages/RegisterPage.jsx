@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { setAuth } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -12,21 +14,7 @@ export default function RegisterPage() {
     apellido: ""
   });
   const [error, setError] = useState("");
-  const [roles, setRoles] = useState([]);
-  const [rolSeleccionado, setRolSeleccionado] = useState("");
-
-  useEffect(() => {
-    const cargarRoles = async () => {
-      try {
-        const res = await api.get('/roles');
-        setRoles(res.data || []);
-        if (res.data?.length) setRolSeleccionado(String(res.data[0].id));
-      } catch (e) {
-        console.error('Error cargando roles', e);
-      }
-    };
-    cargarRoles();
-  }, []);
+  // El backend fuerza rol USER (2). No mostramos selector ni enviamos rol.
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -41,28 +29,40 @@ export default function RegisterPage() {
       return;
     }
 
+    // Armar payload esperado por el backend (ignora rol y estado)
+    const dataToSend = {
+      email: formData.email,
+      contrasena: formData.password,
+      nombreCompleto: `${formData.nombre} ${formData.apellido}`,
+    };
+
     try {
-      // Primero obtenemos los roles disponibles
-      // Preparamos los datos en el formato que espera el backend
-      const dataToSend = {
-        email: formData.email,
-        contrasena: formData.password,
-        nombreCompleto: `${formData.nombre} ${formData.apellido}`,
-        estado: "activo",
-        rol: { id: Number(rolSeleccionado) }
-      };
-      console.log('Datos a enviar:', dataToSend); // Para debug
-      const res = await api.post("/usuarios", dataToSend);
-      if (res.data) {
-        // Redirigir al login después de un registro exitoso
-        navigate("/login");
+      const res = await api.post("/auth/register", dataToSend);
+      // Backend devuelve 201 con token y datos del usuario. Hacemos login automático.
+      if (res?.data?.token) {
+        localStorage.setItem("token", res.data.token);
+        // setAuth usará el JWT para derivar email/role; pasamos el email por conveniencia
+        await setAuth(res.data.email || formData.email);
+        navigate("/dashboard");
+        return;
       }
+      // Si no viene token por alguna razón, redirigimos a login como fallback
+      navigate("/login");
+      return;
     } catch (err) {
       console.error('Error completo:', err);
+      // Manejo 403 (prohibido crear usuarios sin permisos adecuados)
+      if (err.response?.status === 403) {
+        setError('Acceso denegado: no tienes permisos para registrar usuarios directamente.');
+        return;
+      }
       
       // Verificar si es un error de email duplicado
-      if (err.response?.data?.message?.includes('Ya existe la llave (email)') ||
-          err.response?.data?.message?.includes('ukkfsp0s1tflm1cwlj8idhqsad0')) {
+      if (
+        err.response?.status === 409 ||
+        err.response?.data?.message?.includes('Ya existe la llave (email)') ||
+        err.response?.data?.message?.includes('ukkfsp0s1tflm1cwlj8idhqsad0')
+      ) {
         setError('Este correo electrónico ya está registrado. Por favor, utiliza otro email o inicia sesión.');
       } else {
         setError(
@@ -120,19 +120,7 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          <label className="flex flex-col w-full">
-            <p className="text-[#0d141b] dark:text-slate-300 pb-2">Rol</p>
-            <select
-              value={rolSeleccionado}
-              onChange={(e) => setRolSeleccionado(e.target.value)}
-              className="flex w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-background-light dark:bg-background-dark focus:ring-2 focus:ring-primary/50 h-14 px-4 text-base text-[#0d141b] dark:text-white"
-              required
-            >
-              {roles.map(r => (
-                <option key={r.id} value={r.id}>{r.descripcion || r.nombre || `Rol ${r.id}`}</option>
-              ))}
-            </select>
-          </label>
+          {/* Rol oculto: por defecto USER (2). El admin se asigna desde la vista de Roles por un administrador. */}
 
           <label className="flex flex-col w-full">
             <p className="text-[#0d141b] dark:text-slate-300 pb-2">Correo Electrónico</p>
@@ -197,12 +185,12 @@ export default function RegisterPage() {
 
           <p className="text-center text-[#0d141b] dark:text-slate-300">
             ¿Ya tienes una cuenta?{" "}
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="text-primary hover:underline font-semibold"
             >
               Inicia sesión
-            </a>
+            </Link>
           </p>
         </form>
       </div>

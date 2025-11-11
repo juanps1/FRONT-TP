@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
+import Navbar from '../components/Navbar';
 
 export default function UsersPage() {
   const [usuarios, setUsuarios] = useState([]);
@@ -19,10 +20,12 @@ export default function UsersPage() {
   }, []);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Usuarios</h1>
-      {error && <p className="text-red-500 mb-3">{error}</p>}
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen">
+      <Navbar />
+      <main className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Usuarios</h1>
+        {error && <p className="text-red-500 mb-3">{error}</p>}
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
@@ -51,7 +54,8 @@ export default function UsersPage() {
             )}
           </tbody>
         </table>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

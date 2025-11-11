@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NewConversationModal from '../components/NewConversationModal';
+import Navbar from '../components/Navbar';
 
 export default function MensajesPage() {
   const navigate = useNavigate();
@@ -156,9 +157,11 @@ export default function MensajesPage() {
   });
 
   return (
-    <div className="flex h-screen bg-background-light dark:bg-background-dark">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen">
+      <Navbar />
+      <div className="flex">
       {/* Sidebar con conversaciones */}
-      <aside className="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+  <aside className="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-primary">Mensajes</h2>
@@ -179,16 +182,6 @@ export default function MensajesPage() {
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-800"
             />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <button onClick={()=>navigate('/dashboard')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Dashboard</button>
-            <button onClick={()=>navigate('/medidores')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Medidores</button>
-            <button onClick={()=>navigate('/facturas')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Facturas</button>
-            <button onClick={()=>navigate('/alertas')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Alertas</button>
-            <button onClick={()=>navigate('/procesos')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Procesos</button>
-            {roleId === 1 && (
-              <button onClick={()=>navigate('/usuarios')} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Usuarios</button>
-            )}
           </div>
         </div>
 
@@ -380,6 +373,7 @@ export default function MensajesPage() {
         onCreate={handleNuevaConversacion}
         currentUserId={currentUserId}
       />
+      </div>
     </div>
   );
 }
