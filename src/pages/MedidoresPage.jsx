@@ -316,15 +316,17 @@ export default function MedidoresPage() {
       <main className="p-6 lg:p-10">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-extrabold">Gestión de Medidores</h1>
-          {roleId === 1 && (
-            <button
-              onClick={() => modalRef.current?.showModal()}
-              className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
-            >
-              <span className="material-symbols-outlined text-lg">add</span>
-              Nuevo Medidor
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {roleId === 1 && (
+              <button
+                onClick={() => modalRef.current?.showModal()}
+                className="flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-primary/90"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                Nuevo Medidor
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mensajes */}
