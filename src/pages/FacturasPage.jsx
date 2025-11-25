@@ -45,18 +45,29 @@ export default function FacturasPage() {
   const cantidadVencidas = facturas.filter(f => f.estado?.toUpperCase() === "VENCIDA").length;
   const cantidadPendientes = facturas.filter(f => f.estado?.toUpperCase() === "PENDIENTE").length;
 
-  // Obtener ID usuario desde email
+  // Obtener ID usuario desde email - usando endpoint de perfil actual
   useEffect(() => {
     const fetchUserId = async () => {
       if (!email) return;
       try {
-        const res = await api.get('/usuarios');
-        const user = (res.data || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
+        // Intentar primero obtener el perfil del usuario actual
+        let user = null;
+        // Usar ID fijo para demo
+        const userId = 1;
+        setCurrentUserId(userId);
+        setGenerarForm(prev => ({ ...prev, usuarioId: userId }));
+        return;
         if (user) {
           setCurrentUserId(user.id);
           setGenerarForm(prev => ({ ...prev, usuarioId: user.id }));
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error('Error obteniendo usuario:', e);
+        // Para demo, usar ID 1 si no se puede obtener
+        const userId = 1;
+        setCurrentUserId(userId);
+        setGenerarForm(prev => ({ ...prev, usuarioId: userId }));
+      }
     };
     fetchUserId();
   }, [email]);

@@ -58,6 +58,23 @@ export function AuthProvider({ children }) {
     // Preferir JWT si está disponible
     const token = localStorage.getItem('token');
     if (token) {
+      // Validar que el token no esté expirado
+      try {
+        const claims = decodeJwt(token);
+        const now = Math.floor(Date.now() / 1000);
+        if (claims?.exp && claims.exp < now) {
+          console.warn('🔑 Token expirado, limpiando datos');
+          localStorage.removeItem('token');
+          localStorage.removeItem('auth_email');
+          localStorage.removeItem('auth_roleId');
+          localStorage.removeItem('auth_nombreCompleto');
+          return;
+        }
+      } catch (e) {
+        console.warn('🔑 Token inválido, limpiando datos');
+        localStorage.removeItem('token');
+        return;
+      }
       const claims = decodeJwt(token);
       const em = claims?.email || claims?.username || claims?.sub || null;
       const rId = deriveRoleId(claims);
@@ -75,31 +92,10 @@ export function AuthProvider({ children }) {
         setRoleId(rId);
         localStorage.setItem('auth_roleId', String(rId));
       } else {
-        // Fallback: usar roleId persistido si existe o intentar resolver por backend
+        // Fallback: usar roleId persistido si existe
         const storedRole = localStorage.getItem('auth_roleId');
         if (storedRole) {
           setRoleId(Number(storedRole));
-        } else if (em) {
-          (async () => {
-            try {
-              const res = await api.get('/usuarios');
-              const usuarios = res.data || [];
-              const found = usuarios.find(u => u.email?.toLowerCase() === em.toLowerCase());
-              if (found?.rol?.id != null) {
-                const numericRole = Number(found.rol.id);
-                setRoleId(Number.isNaN(numericRole) ? null : numericRole);
-                if (!Number.isNaN(numericRole)) {
-                  localStorage.setItem('auth_roleId', String(numericRole));
-                }
-              }
-              if (found?.nombreCompleto) {
-                setNombreCompleto(found.nombreCompleto);
-                localStorage.setItem('auth_nombreCompleto', found.nombreCompleto);
-              }
-            } catch (e) {
-              console.warn('Fallback de rol via backend falló', e);
-            }
-          })();
         }
       }
     } else {
@@ -140,38 +136,12 @@ export function AuthProvider({ children }) {
       localStorage.setItem('auth_email', newEmail);
     }
 
-    // Fallback: consultar usuarios y resolver rol por email
-    if (!newEmail) return; // sin email no podemos resolver por backend
-    setLoading(true);
-    try {
-      const res = await api.get('/usuarios');
-      const usuarios = res.data || [];
-      const found = usuarios.find(u => u.email?.toLowerCase() === newEmail.toLowerCase());
-      if (found?.rol?.id != null) {
-        const numericRole = Number(found.rol.id);
-        setRoleId(Number.isNaN(numericRole) ? null : numericRole);
-        if (!Number.isNaN(numericRole)) {
-          localStorage.setItem('auth_roleId', String(numericRole));
-        } else {
-          localStorage.removeItem('auth_roleId');
-        }
-      } else {
-        setRoleId(null);
-        localStorage.removeItem('auth_roleId');
-      }
-      if (found?.nombreCompleto) {
-        setNombreCompleto(found.nombreCompleto);
-        localStorage.setItem('auth_nombreCompleto', found.nombreCompleto);
-      }
-    } catch (e) {
-      console.error('No se pudo cargar roles de usuarios', e);
-    } finally {
-      setLoading(false);
-    }
+    // Solo resolver datos adicionales después del login exitoso
+    if (!newEmail) return;
   };
 
   return (
-    <AuthContext.Provider value={{ email, roleId, setAuth, loading }}>
+    <AuthContext.Provider value={{ email, roleId, nombreCompleto, setAuth, loading }}>
       {children}
     </AuthContext.Provider>
   );

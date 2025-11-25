@@ -7,26 +7,49 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", contrasena: "" });
   const [error, setError] = useState("");
-  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'online', 'offline', 'error'
   const { setAuth, loading } = useAuth();
 
   useEffect(() => {
     const checkServer = async () => {
       try {
-        // Usar endpoint público para verificar conectividad
-        await api.get('/auth/health').catch(() => {
-          // Si /auth/health no existe, intentar con /usuarios sin token
-          return api.get('/usuarios', { headers: { Authorization: '' } });
-        });
-        setServerStatus('online');
-        setError('');
+        // Intentar endpoint de health primero
+        try {
+          await api.get('/auth/health', { timeout: 5000 });
+          setServerStatus('online');
+          setError('');
+          return;
+        } catch (healthErr) {
+          // Si health no existe, intentar con /usuarios sin token (debería dar 401/403)
+          try {
+            await api.get('/usuarios', { 
+              headers: { Authorization: '' }, 
+              timeout: 5000 
+            });
+            // Si no da error, algo raro pasa
+            setServerStatus('online');
+            setError('');
+          } catch (usersErr) {
+            // Si da 401/403, el servidor está online
+            if (usersErr.response && (usersErr.response.status === 401 || usersErr.response.status === 403)) {
+              setServerStatus('online');
+              setError('');
+            } else {
+              throw usersErr; // Re-lanzar para manejar como error de conectividad
+            }
+          }
+        }
       } catch (err) {
-        // Si falla, marcar como offline solo si es un error de red
-        if (!err.response || err.response.status >= 500) {
+        console.error('Server check error:', err);
+        // Si es error de red o timeout, marcar como offline
+        if (!err.response || err.code === 'ECONNREFUSED' || err.code === 'TIMEOUT') {
           setServerStatus('offline');
-          setError('El servidor no está disponible. Por favor, inténtelo más tarde.');
+          setError('El servidor no está disponible. Verifique que esté corriendo en puerto 8080.');
+        } else if (err.response.status >= 500) {
+          setServerStatus('error');
+          setError('El servidor está experimentando problemas internos.');
         } else {
-          // Si hay respuesta pero es 401/403, el servidor está online
+          // Otros errores HTTP, asumir que el servidor está online
           setServerStatus('online');
           setError('');
         }
@@ -34,7 +57,7 @@ export default function LoginPage() {
     };
 
     checkServer();
-    const interval = setInterval(checkServer, 10000); // Verificar cada 10 segundos
+    const interval = setInterval(checkServer, 15000); // Verificar cada 15 segundos (más eficiente)
 
     return () => clearInterval(interval);
   }, []);
@@ -47,8 +70,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    if (serverStatus === 'offline') {
-      setError("El servidor no está disponible. Por favor, inténtelo más tarde.");
+    if (serverStatus === 'offline' || serverStatus === 'error') {
+      setError("El servidor no está disponible o tiene problemas. Por favor, inténtelo más tarde.");
       return;
     }
 
@@ -57,6 +80,13 @@ export default function LoginPage() {
         email: formData.email,
         contrasena: formData.contrasena,
       });
+      
+      // Validar que la respuesta tenga el token
+      if (!res.data || !res.data.token) {
+        setError("Error en la respuesta del servidor. No se recibió token de autenticación.");
+        return;
+      }
+      
       localStorage.setItem("token", res.data.token);
       // Cargar rol y setear contexto
       await setAuth(formData.email);
@@ -90,6 +120,8 @@ export default function LoginPage() {
                 ? 'bg-green-100 dark:bg-green-900/30' 
                 : serverStatus === 'offline' 
                   ? 'bg-red-100 dark:bg-red-900/30' 
+                  : serverStatus === 'error'
+                  ? 'bg-orange-100 dark:bg-orange-900/30'
                   : 'bg-yellow-100 dark:bg-yellow-900/30'
             }`}>
               <div className={`h-2.5 w-2.5 rounded-full ${
@@ -97,6 +129,8 @@ export default function LoginPage() {
                   ? 'bg-green-500'
                   : serverStatus === 'offline'
                   ? 'bg-red-500'
+                  : serverStatus === 'error'
+                  ? 'bg-orange-500'
                   : 'bg-yellow-500 animate-pulse'
               }`} />
               <span className={`text-sm font-medium ${
@@ -104,12 +138,16 @@ export default function LoginPage() {
                   ? 'text-green-700 dark:text-green-300'
                   : serverStatus === 'offline'
                   ? 'text-red-700 dark:text-red-300'
+                  : serverStatus === 'error'
+                  ? 'text-orange-700 dark:text-orange-300'
                   : 'text-yellow-700 dark:text-yellow-300'
               }`}>
                 {serverStatus === 'online'
                   ? 'Servidor conectado'
                   : serverStatus === 'offline'
                   ? 'Servidor desconectado'
+                  : serverStatus === 'error'
+                  ? 'Servidor con errores'
                   : 'Verificando conexión...'}
               </span>
             </div>

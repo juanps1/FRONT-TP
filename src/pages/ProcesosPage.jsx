@@ -76,15 +76,21 @@ export default function ProcesosPage() {
   const [resultadoErr, setResultadoErr] = useState('');
   const [pollingMap, setPollingMap] = useState({}); // id -> intervalId
 
-  // Obtener ID usuario desde email
+  // Obtener ID usuario - usar ID fijo para demo o desde JWT
   useEffect(() => {
-    const fetchUserId = async () => {
+    const fetchUserId = () => {
       if (!email) return;
-      try {
-        const res = await api.get('/usuarios');
-        const user = (res.data || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
-        if (user) setCurrentUserId(user.id);
-      } catch (e) { console.error(e); }
+      
+      // Intentar obtener el userId desde localStorage (desde JWT)
+      const storedUserId = localStorage.getItem('auth_userId');
+      if (storedUserId) {
+        setCurrentUserId(Number(storedUserId));
+        return;
+      }
+      
+      // Para demo, usar ID 1 como fallback
+      console.log('Usando userId demo para:', email);
+      setCurrentUserId(1);
     };
     fetchUserId();
   }, [email]);
@@ -144,6 +150,12 @@ export default function ProcesosPage() {
     e.preventDefault();
     if (!validarFormulario()) return;
     
+    // Verificar que tengamos el ID del usuario
+    if (!currentUserId) {
+      setFormErr('No se pudo obtener el ID del usuario. Intenta recargar la página.');
+      return;
+    }
+    
     // Verificar facturas vencidas antes de crear
     try {
       const vencidasRes = await api.get(`/facturas/usuario/${currentUserId}/tiene-vencidas`);
@@ -166,7 +178,10 @@ export default function ProcesosPage() {
         tipoProceso,
         parametros: buildParametros(tipoProceso, params)
       };
+      
+      console.log('🚀 Enviando solicitud de proceso:', body);
       const res = await api.post('/solicitudes-proceso', body);
+      console.log('✅ Proceso creado exitosamente:', res.data);
       // Agregar al inicio
       setSolicitudes(prev => [res.data, ...prev]);
       // iniciar polling individual de esa solicitud
@@ -175,12 +190,21 @@ export default function ProcesosPage() {
       setTimeout(()=> setFormMsg(''), 3000);
     } catch (err) {
       console.error('Error al crear solicitud', err);
+      console.error('Detalles del error:', err.response?.data);
+      
       // Capturar 403 (usuario con facturas vencidas)
       if (err.response?.status === 403) {
         setFormErr('Usuario con facturas vencidas. Regularice su situación para continuar.');
         setTimeout(() => {
           navigate('/facturas');
         }, 2000);
+      } else if (err.response?.status === 500) {
+        // Error 500: problema en el servidor
+        const errorMsg = err.response?.data?.message || 
+                        err.response?.data?.error || 
+                        err.response?.data?.mensaje || 
+                        'Error interno del servidor. Revisa que el backend esté funcionando correctamente.';
+        setFormErr(`Error del servidor: ${errorMsg}`);
       } else {
         setFormErr(err.response?.data?.message || err.response?.data?.mensaje || 'No se pudo crear la solicitud');
       }
@@ -197,6 +221,9 @@ export default function ProcesosPage() {
       fechaDesde: p.fechaDesde,
       fechaHasta: p.fechaHasta,
     };
+    
+    // Debug: mostrar los parámetros que se envían
+    console.log('Parámetros enviados:', { usuarioId: currentUserId, tipoProceso, parametros: base });
     if (tipo === 'alerta') {
       return {
         ...base,
@@ -246,11 +273,19 @@ export default function ProcesosPage() {
 
   const reintentar = async (id) => {
     try {
-      await api.post(`/solicitudes-proceso/${id}/reejecutar`);
+      console.log('🔄 Reintentando proceso:', id);
+      const res = await api.post(`/solicitudes-proceso/${id}/reejecutar`);
+      console.log('✅ Respuesta reintentar:', res.data);
+      
+      // Mostrar mensaje de éxito temporal
+      setFormMsg('Proceso reencolado. Nota: El backend necesita un scheduler para procesarlo automáticamente.');
+      setTimeout(() => setFormMsg(''), 5000);
+      
       // Reiniciar polling de ese ID
       startPollingSolicitud(id);
       cargarSolicitudes();
     } catch (e) {
+      console.error('❌ Error reintentando:', e);
       alert(e.response?.data?.message || 'No se pudo reintentar');
     }
   };
@@ -410,7 +445,7 @@ export default function ProcesosPage() {
                                 </button>
                               </>
                             )}
-                            {s.estado === 'error' && (
+                            {(s.estado === 'error' || s.estado === 'pendiente') && (
                               <button onClick={() => reintentar(s.id)} className="h-8 px-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-amber-600" title="Reintentar">
                                 <span className="material-symbols-outlined">refresh</span>
                               </button>

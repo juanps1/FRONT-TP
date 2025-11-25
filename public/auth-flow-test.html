@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Flow Test</title>
+</head>
+<body>
+    <h1>Authentication Flow Test</h1>
+    <p>Abre la consola del navegador (F12) para ver los resultados de la prueba.</p>
+    <button onclick="runTest()">Ejecutar Prueba de Autenticación</button>
+    
+    <script>
+    async function runTest() {
+        console.log('=== INICIANDO PRUEBA DE AUTENTICACIÓN ===');
+        
+        // 1. Verificar estado inicial
+        const initialToken = localStorage.getItem('token');
+        console.log('Token inicial en localStorage:', initialToken ? initialToken.substring(0, 50) + '...' : 'NO HAY TOKEN');
+        
+        // 2. Hacer login
+        console.log('\n1. Haciendo login...');
+        try {
+            const loginResponse = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: 'usuario@test.com',
+                    contrasena: 'test123'
+                })
+            });
+            
+            const loginData = await loginResponse.json();
+            console.log('Respuesta de login:', loginData);
+            
+            if (loginData.token) {
+                localStorage.setItem('token', loginData.token);
+                console.log('✅ Token guardado en localStorage');
+                
+                // 3. Verificar que el token se guardó
+                const savedToken = localStorage.getItem('token');
+                console.log('Token verificado:', savedToken ? savedToken.substring(0, 50) + '...' : 'ERROR: NO SE GUARDÓ');
+                
+                // 4. Probar endpoint protegido
+                console.log('\n2. Probando endpoint /usuarios/para-chat...');
+                
+                const chatResponse = await fetch('/api/usuarios/para-chat', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${savedToken}`
+                    }
+                });
+                
+                console.log('Status de respuesta:', chatResponse.status);
+                
+                if (chatResponse.ok) {
+                    const chatData = await chatResponse.json();
+                    console.log('✅ Usuarios obtenidos:', chatData.length, 'usuarios');
+                    console.log('Nombres:', chatData.map(u => u.nombreCompleto));
+                } else {
+                    const errorText = await chatResponse.text();
+                    console.log('❌ Error en respuesta:', errorText);
+                }
+                
+                // 5. Probar con simulación de axios (como lo hace el frontend)
+                console.log('\n3. Simulando request de axios...');
+                
+                // Simular lo que hace el interceptor de axios
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                const token = localStorage.getItem('token');
+                if (token) {
+                    headers.Authorization = `Bearer ${token}`;
+                    console.log('🔐 JWT Token añadido:', token.substring(0, 50) + '...');
+                }
+                
+                console.log('Headers que se enviarían:', headers);
+                
+                const axiosLikeResponse = await fetch('/api/usuarios/para-chat', {
+                    method: 'GET',
+                    headers: headers
+                });
+                
+                console.log('Status con simulación axios:', axiosLikeResponse.status);
+                
+                if (axiosLikeResponse.ok) {
+                    const axiosData = await axiosLikeResponse.json();
+                    console.log('✅ Usuarios con axios simulado:', axiosData.length, 'usuarios');
+                } else {
+                    const axiosError = await axiosLikeResponse.text();
+                    console.log('❌ Error con axios simulado:', axiosError);
+                }
+                
+            } else {
+                console.log('❌ No se recibió token en la respuesta de login');
+            }
+            
+        } catch (error) {
+            console.log('❌ Error en el flujo:', error.message);
+        }
+        
+        console.log('\n=== PRUEBA COMPLETADA ===');
+    }
+    </script>
+</body>
+</html>

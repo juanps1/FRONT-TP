@@ -15,7 +15,7 @@ export default function ServerStatus() {
         const latency = Math.round(endTime - startTime);
         setStatus('online');
         setLastChecked({ time: new Date(), latency });
-        console.log('Conexión exitosa:', response);
+        // console.log('Conexión exitosa:', response); // Comentado para reducir logs
       } catch (error) {
         console.error('Error de conexión:', {
           message: error.message,

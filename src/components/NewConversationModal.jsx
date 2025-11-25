@@ -25,8 +25,8 @@ export default function NewConversationModal({ isOpen, onClose, onCreate, curren
     setLoadingUsuarios(true);
     setError('');
     try {
-      // Si el endpoint estuviera restringido para no-admin, capturamos 403 y degradamos.
-      const res = await api.get('/usuarios');
+      // Usar el endpoint específico para chat que está disponible para todos los usuarios autenticados
+      const res = await api.get('/usuarios/para-chat');
       // Filtrar usuario actual
       const filtered = (res.data || []).filter(u => u.id !== currentUserId);
       setUsuarios(filtered);

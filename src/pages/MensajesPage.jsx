@@ -20,18 +20,27 @@ export default function MensajesPage() {
   const [busqueda, setBusqueda] = useState('');
   const messagesEndRef = useRef(null);
 
-  // Obtener el ID del usuario actual desde email
+  // Obtener el ID del usuario actual desde el endpoint /me
   useEffect(() => {
     const fetchUserId = async () => {
       if (!email) return;
       try {
-        const res = await api.get('/usuarios');
-        const user = (res.data || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
-        if (user) {
-          setCurrentUserId(user.id);
+        const res = await api.get('/usuarios/me');
+        if (res.data && res.data.id) {
+          setCurrentUserId(res.data.id);
         }
       } catch (err) {
         console.error('Error al obtener usuario actual:', err);
+        // Fallback: intentar con el endpoint para-chat
+        try {
+          const fallbackRes = await api.get('/usuarios/para-chat');
+          const user = (fallbackRes.data || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
+          if (user) {
+            setCurrentUserId(user.id);
+          }
+        } catch (fallbackErr) {
+          console.error('Error en fallback para obtener usuario:', fallbackErr);
+        }
       }
     };
     fetchUserId();
@@ -39,12 +48,12 @@ export default function MensajesPage() {
 
   // Cargar conversaciones del usuario
   useEffect(() => {
-    if (currentUserId) {
+    if (email) { // Cambiar de currentUserId a email
       cargarConversaciones();
       const interval = setInterval(cargarConversaciones, 5000); // Polling cada 5s
       return () => clearInterval(interval);
     }
-  }, [currentUserId]);
+  }, [email]); // Cambiar dependencia a email
 
   // Cargar mensajes cuando cambia la conversación activa
   useEffect(() => {
@@ -62,10 +71,20 @@ export default function MensajesPage() {
 
   const cargarConversaciones = async () => {
     try {
-      const res = await api.get(`/conversaciones/usuario/${currentUserId}`);
+      // Usar el nuevo endpoint que obtiene conversaciones del usuario autenticado
+      const res = await api.get('/conversaciones/mis-conversaciones');
       setConversaciones(res.data || []);
     } catch (err) {
       console.error('Error al cargar conversaciones:', err);
+      // Fallback al método anterior si currentUserId está disponible
+      if (currentUserId) {
+        try {
+          const fallbackRes = await api.get(`/conversaciones/usuario/${currentUserId}`);
+          setConversaciones(fallbackRes.data || []);
+        } catch (fallbackErr) {
+          console.error('Error en fallback:', fallbackErr);
+        }
+      }
     }
   };
 

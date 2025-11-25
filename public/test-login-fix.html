@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login Fix</title>
+</head>
+<body>
+    <h1>Test Login Security Fix</h1>
+    
+    <div>
+        <h2>Test Credenciales Incorrectas</h2>
+        <button onclick="testBadLogin()">Probar Login con Credenciales Falsas</button>
+    </div>
+    
+    <div>
+        <h2>Test Credenciales Correctas</h2>
+        <button onclick="testGoodLogin()">Probar Login con Credenciales Válidas</button>
+    </div>
+    
+    <div id="results">
+        <h2>Resultados</h2>
+        <pre id="output"></pre>
+    </div>
+
+    <script>
+        function log(message) {
+            document.getElementById('output').textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        async function testBadLogin() {
+            try {
+                log('🔒 Probando login con credenciales incorrectas...');
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'fake@fake.com',
+                        contrasena: 'fake123'
+                    })
+                });
+                
+                log('❌ ERROR: El fetch no lanzó excepción para credenciales incorrectas!');
+                log('Status: ' + response.status);
+                
+                const data = await response.json();
+                log('Response: ' + JSON.stringify(data));
+                
+            } catch (error) {
+                log('✅ CORRECTO: Login rechazado correctamente');
+                log('Error: ' + error.message);
+                if (error.response) {
+                    log('Status: ' + error.response.status);
+                }
+            }
+        }
+
+        async function testGoodLogin() {
+            try {
+                log('🔑 Probando login con credenciales correctas...');
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@admin.com',
+                        contrasena: 'admin'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.token) {
+                        log('✅ CORRECTO: Login exitoso con token');
+                        log('Token: ' + data.token.substring(0, 50) + '...');
+                    } else {
+                        log('❌ ERROR: Login exitoso pero sin token');
+                    }
+                } else {
+                    log('❌ ERROR: Login falló con credenciales correctas');
+                    log('Status: ' + response.status);
+                }
+                
+            } catch (error) {
+                log('❌ ERROR: Fetch falló para credenciales correctas');
+                log('Error: ' + error.message);
+            }
+        }
+
+        log('Página cargada. Prueba los botones arriba.');
+    </script>
+</body>
+</html>
